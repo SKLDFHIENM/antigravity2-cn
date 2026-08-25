@@ -166,6 +166,7 @@ function generateJs() {
 (() => {
     // V12.0 终极隔离版：基于容器回溯的物理隔离引擎
     // 逻辑：不再仅仅检查当前标签，而是向上回溯父级，识别“代码/编辑器”禁区
+    const USE_TW = ${USE_TW ? "true" : "false"};
     const map = new Map(Object.entries(DICT_PLACEHOLDER));
     const lowerMap = new Map();
     for (const [k, v] of map.entries()) lowerMap.set(k.toLowerCase(), v);
@@ -173,9 +174,8 @@ function generateJs() {
     const longEntries = REPLACEMENT_ENTRIES_PLACEHOLDER;
     const translatedValues = new WeakMap();
 
-    // 禁区类名/属性特征
-    const BLOCKED_CLASSES = ['monaco-editor', 'editor-container', 'terminal', 'output-view', 'debug-console', 'code-view', 'artifact-container', 'suggest-widget', 'chat-bubble', 'chat-message', 'chat-line', 'chat-msg', 'message-item', 'conversation-item', 'chat-history', 'chat-container', 'chat-pane', 'ai-chat-bubble', 'user-chat-bubble'];
-    const BLOCKED_TAGS = ['SCRIPT', 'STYLE', 'CODE', 'PRE', 'INPUT', 'TEXTAREA', 'SVG', 'CANVAS', 'SYMBOL', 'PATH'];
+    // 全局畅通版：移除所有禁区规则，允许全局全量无差别汉化
+    const SKIP_TAGS = ['SCRIPT', 'STYLE'];
 
     function norm(s) {
         if (!s) return '';
@@ -202,122 +202,23 @@ function generateJs() {
         return null;
     }
 
-    // 核心隔离判断：回溯检查当前节点是否逻辑上属于“禁止汉化区”
-    function isInBlockedZone(node) {
-        let curr = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
-        let depth = 0;
-        while (curr && depth < 12) { // 向上回溯 12 层
-            if (curr.nodeType === Node.ELEMENT_NODE) {
-                const tag = curr.tagName.toUpperCase();
-                if (BLOCKED_TAGS.includes(tag)) return true;
-                if (curr.getAttribute('contenteditable') === 'true') return true;
-
-                // 阻断常见的角色属性标识，如 data-role="user", data-author="user"
-                const dataRole = curr.getAttribute('data-role');
-                if (dataRole && /^(user|human|client|customer|my)$/i.test(dataRole)) return true;
-                const dataAuthor = curr.getAttribute('data-author');
-                if (dataAuthor && /^(user|human|client|customer|my)$/i.test(dataAuthor)) return true;
-                
-                // 阻断 ID 包含 chat, conversation, interactive 的容器
-                const id = curr.id || '';
-                if (typeof id === 'string') {
-                    const idLower = id.toLowerCase();
-                    if (idLower.includes('chat') || idLower.includes('conversation') || idLower.includes('interactive')) return true;
-                }
-
-                // 阻断 aria-label 包含 Chat, AI, Ask, conversation, interactive 的容器
-                const ariaLabel = curr.getAttribute('aria-label') || '';
-                if (ariaLabel) {
-                    const alLower = ariaLabel.toLowerCase();
-                    if (alLower.includes('chat') || alLower.includes('ai') || alLower.includes('ask') || alLower.includes('conversation') || alLower.includes('interactive')) return true;
-                }
-
-                const className = curr.className || '';
-                if (typeof className === 'string') {
-                    if (BLOCKED_CLASSES.some(cls => className.includes(cls))) return true;
-
-                    const clsLower = className.toLowerCase();
-                    // 阻断类名包含 chat, conversation, interactive 的容器
-                    if (clsLower.includes('chat') || clsLower.includes('conversation') || clsLower.includes('interactive')) return true;
-
-                    // 阻断各类用户/助理聊天消息气泡的变体
-                    if (/(^|\b|[-_])(user|human|client|customer|my|ai|bot|assistant)([-_]?(message|msg|bubble|query|chat|input|text|content))(\b|$)/i.test(className)) {
-                        return true;
-                    }
-                    if (/(^|\b|[-_])(message|msg|bubble|query|chat|input|text|content)([-_]?(user|human|client|customer|my|ai|bot|assistant))(\b|$)/i.test(className)) {
-                        return true;
-                    }
-                }
-            }
-            curr = curr.parentElement || (curr.parentNode && curr.parentNode.host); // 支持 Shadow DOM 穿透
-            depth++;
-        }
-        return false;
-    }
-
     function translateNode(node) {
         try {
             if (!node) return;
             
             if (node.nodeType === Node.ELEMENT_NODE) {
                 const tag = node.tagName.toUpperCase();
-                
-                // 给禁区元素打上 translate="no" 和 class="notranslate" 标记，物理防御网页自动翻译
-                let isBlocked = BLOCKED_TAGS.includes(tag);
-                if (!isBlocked) {
-                    const className = node.className || '';
-                    if (typeof className === 'string') {
-                        if (BLOCKED_CLASSES.some(cls => className.includes(cls))) {
-                            isBlocked = true;
-                        }
-                    }
-                }
-                if (node.getAttribute('contenteditable') === 'true') {
-                    isBlocked = true;
-                }
-                
-                if (isBlocked) {
-                    if (node.getAttribute('translate') !== 'no') {
-                        node.setAttribute('translate', 'no');
-                    }
-                    try {
-                        if (!node.classList.contains('notranslate')) {
-                            node.classList.add('notranslate');
-                        }
-                    } catch (e) {}
-                }
+                if (SKIP_TAGS.includes(tag)) return;
 
-                // 1. 快速排除基础禁止标签
-                if (BLOCKED_TAGS.includes(tag)) {
-                    // 对于 INPUT, TEXTAREA 和 SVG，虽然不翻译其子元素或内容，但需要翻译其 placeholder, title, aria-label 等属性
-                    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SVG') {
-                        if (!isInBlockedZone(node.parentElement)) {
-                            for (const attr of ['placeholder', 'title', 'aria-label']) {
-                                const v = node.getAttribute(attr);
-                                if (v) {
-                                    const t = norm(v);
-                                    const shortcutTrans = translateWithShortcut(t);
-                                    if (shortcutTrans) node.setAttribute(attr, shortcutTrans);
-                                    else if (map.has(t)) node.setAttribute(attr, map.get(t));
-                                    else if (lowerMap.has(t.toLowerCase())) node.setAttribute(attr, lowerMap.get(t.toLowerCase()));
-                                }
-                            }
-                        }
-                    }
-                    return;
-                }
-                
-                // 2. 只有当确实不在禁区时，才翻译其属性
-                if (!isInBlockedZone(node)) {
-                    for (const attr of ['placeholder', 'title', 'aria-label']) {
-                        const v = node.getAttribute(attr);
-                        if (v) {
-                            const t = norm(v);
-                            const shortcutTrans = translateWithShortcut(t);
-                            if (shortcutTrans) node.setAttribute(attr, shortcutTrans);
-                            else if (map.has(t)) node.setAttribute(attr, map.get(t));
-                            else if (lowerMap.has(t.toLowerCase())) node.setAttribute(attr, lowerMap.get(t.toLowerCase()));
-                        }
+                // 翻译属性：placeholder, title, aria-label
+                for (const attr of ['placeholder', 'title', 'aria-label']) {
+                    const v = node.getAttribute(attr);
+                    if (v) {
+                        const t = norm(v);
+                        const shortcutTrans = translateWithShortcut(t);
+                        if (shortcutTrans) node.setAttribute(attr, shortcutTrans);
+                        else if (map.has(t)) node.setAttribute(attr, map.get(t));
+                        else if (lowerMap.has(t.toLowerCase())) node.setAttribute(attr, lowerMap.get(t.toLowerCase()));
                     }
                 }
 
@@ -344,9 +245,6 @@ function generateJs() {
                     return;
                 }
 
-                // 核心：在处理文本节点前，必须确认其不在“禁止区”
-                if (isInBlockedZone(node)) return;
-
                 if (translatedValues.get(node) === originalVal) return;
 
                 let newVal = originalVal;
@@ -367,52 +265,52 @@ function generateJs() {
                     newVal = USE_TW ? "Cloud SQL 遠端 MCP 伺服器可讓您存取並執行 Cloud SQL 工具，用於管理 Cloud SQL 執行個體、管理使用者、建立和復原資料備份及資料庫維運。" : "Cloud SQL 远程 MCP 服务器可让您访问并运行 Cloud SQL 工具，用于管理 Cloud SQL 实例、管理用户、创建和恢复数据备份及数据库运维。";
                 } else if (/^The Spanner remote/i.test(valNorm)) {
                     newVal = USE_TW ? "Spanner 遠端 MCP 伺服器可讓您從 AI 開發環境中存取並執行 Spanner 工具，以建立、管理和查詢分散式資料庫資源。" : "Spanner 远程 MCP 服务器可让您从 AI 开发环境中访问并运行 Spanner 工具，以创建、管理和查询分布式数据库资源。";
-                } else if (/^Refreshes in (\d+) days?, (\d+) hours?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Refreshes in (\d+) days?, (\d+) hours?$/i, (match, d, h) => {
+                } else if (/^Refreshes in (\\d+) days?, (\\d+) hours?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Refreshes in (\\d+) days?, (\\d+) hours?$/i, (match, d, h) => {
                         return USE_TW ? (d + " 天 " + h + " 小時後更新") : (d + " 天 " + h + " 小时后刷新");
                     });
-                } else if (/^Refreshes in (\d+) hours?, (\d+) minutes?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Refreshes in (\d+) hours?, (\d+) minutes?$/i, (match, h, m) => {
+                } else if (/^Refreshes in (\\d+) hours?, (\\d+) minutes?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Refreshes in (\\d+) hours?, (\\d+) minutes?$/i, (match, h, m) => {
                         return USE_TW ? (h + " 小時 " + m + " 分鐘後更新") : (h + " 小时 " + m + " 分钟后刷新");
                     });
-                } else if (/^Refreshes in (\d+) days?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Refreshes in (\d+) days?$/i, (match, d) => {
+                } else if (/^Refreshes in (\\d+) days?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Refreshes in (\\d+) days?$/i, (match, d) => {
                         return USE_TW ? (d + " 天後更新") : (d + " 天后刷新");
                     });
-                } else if (/^Refreshes in (\d+) hours?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Refreshes in (\d+) hours?$/i, (match, h) => {
+                } else if (/^Refreshes in (\\d+) hours?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Refreshes in (\\d+) hours?$/i, (match, h) => {
                         return USE_TW ? (h + " 小時後更新") : (h + " 小时后刷新");
                     });
-                } else if (/^Refreshes in (\d+) minutes?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Refreshes in (\d+) minutes?$/i, (match, m) => {
+                } else if (/^Refreshes in (\\d+) minutes?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Refreshes in (\\d+) minutes?$/i, (match, m) => {
                         return USE_TW ? (m + " 分鐘後更新") : (m + " 分钟后刷新");
                     });
-                } else if (/^You have used some of your weekly limit, it will fully refresh in (\d+) days?, (\d+) hours?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\d+) days?, (\d+) hours?\.?$/i, (match, d, h) => {
+                } else if (/^You have used some of your weekly limit, it will fully refresh in (\\d+) days?, (\\d+) hours?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\\d+) days?, (\\d+) hours?\\.?$/i, (match, d, h) => {
                         return USE_TW ? ("您已使用了部分每週限制，將在 " + d + " 天 " + h + " 小時後完全更新。") : ("您已使用了部分每周限制，将在 " + d + " 天 " + h + " 小时后完全刷新。");
                     });
-                } else if (/^You have used some of your weekly limit, it will fully refresh in (\d+) days?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\d+) days?\.?$/i, (match, d) => {
+                } else if (/^You have used some of your weekly limit, it will fully refresh in (\\d+) days?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\\d+) days?\\.?$/i, (match, d) => {
                         return USE_TW ? ("您已使用了部分每週限制，將在 " + d + " 天後完全更新。") : ("您已使用了部分每周限制，将在 " + d + " 天后完全刷新。");
                     });
-                } else if (/^You have used some of your weekly limit, it will fully refresh in (\d+) hours?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\d+) hours?\.?$/i, (match, h) => {
+                } else if (/^You have used some of your weekly limit, it will fully refresh in (\\d+) hours?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\\d+) hours?\\.?$/i, (match, h) => {
                         return USE_TW ? ("您已使用了部分每週限制，將在 " + h + " 小時後完全更新。") : ("您已使用了部分每周限制，将在 " + h + " 小时后完全刷新。");
                     });
-                } else if (/^You have used some of your weekly limit, it will fully refresh in (\d+) minutes?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\d+) minutes?\.?$/i, (match, m) => {
+                } else if (/^You have used some of your weekly limit, it will fully refresh in (\\d+) minutes?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your weekly limit, it will fully refresh in (\\d+) minutes?\\.?$/i, (match, m) => {
                         return USE_TW ? ("您已使用了部分每週限制，將在 " + m + " 分鐘後完全更新。") : ("您已使用了部分每周限制，将在 " + m + " 分钟后完全刷新。");
                     });
-                } else if (/^You have used some of your 5-hour limit, it will fully refresh in (\d+) hours?, (\d+) minutes?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your 5-hour limit, it will fully refresh in (\d+) hours?, (\d+) minutes?\.?$/i, (match, h, m) => {
+                } else if (/^You have used some of your 5-hour limit, it will fully refresh in (\\d+) hours?, (\\d+) minutes?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your 5-hour limit, it will fully refresh in (\\d+) hours?, (\\d+) minutes?\\.?$/i, (match, h, m) => {
                         return USE_TW ? ("您已使用了部分 5 小時限制，將在 " + h + " 小時 " + m + " 分鐘後完全更新。") : ("您已使用了部分 5 小时限制，将在 " + h + " 小时 " + m + " 分钟后完全刷新。");
                     });
-                } else if (/^You have used some of your 5-hour limit, it will fully refresh in (\d+) hours?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your 5-hour limit, it will fully refresh in (\d+) hours?\.?$/i, (match, h) => {
+                } else if (/^You have used some of your 5-hour limit, it will fully refresh in (\\d+) hours?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your 5-hour limit, it will fully refresh in (\\d+) hours?\\.?$/i, (match, h) => {
                         return USE_TW ? ("您已使用了部分 5 小時限制，將在 " + h + " 小時後完全更新。") : ("您已使用了部分 5 小时限制，将在 " + h + " 小时后完全刷新。");
                     });
-                } else if (/^You have used some of your 5-hour limit, it will fully refresh in (\d+) minutes?\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^You have used some of your 5-hour limit, it will fully refresh in (\d+) minutes?\.?$/i, (match, m) => {
+                } else if (/^You have used some of your 5-hour limit, it will fully refresh in (\\d+) minutes?\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^You have used some of your 5-hour limit, it will fully refresh in (\\d+) minutes?\\.?$/i, (match, m) => {
                         return USE_TW ? ("您已使用了部分 5 小時限制，將在 " + m + " 分鐘後完全更新。") : ("您已使用了部分 5 小时限制，将在 " + m + " 分钟后完全刷新。");
                     });
                 } else if (/^Learn more about (.+)$/i.test(valNorm)) {
@@ -436,24 +334,24 @@ function generateJs() {
                     newVal = valNorm.replace(/^(\\d+) tools? enabled$/i, (match, num) => {
                         return USE_TW ? (num + " 個工具已啟用") : (num + " 个工具已启用");
                     });
-                } else if (/^Show (\d+) more(\.\.\.|…)?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Show (\d+) more(\.\.\.|…)?$/i, (match, num) => {
+                } else if (/^Show (\\d+) more(\\.\\.\\.|…)?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Show (\\d+) more(\\.\\.\\.|…)?$/i, (match, num) => {
                         return USE_TW ? ("顯示另外 " + num + " 個...") : ("显示另外 " + num + " 个...");
                     });
-                } else if (/^See all \((\d+)\)$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^See all \((\d+)\)$/i, (match, num) => {
+                } else if (/^See all\\s*\\((\\d+)\\)$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^See all\\s*\\((\\d+)\\)$/i, (match, num) => {
                         return USE_TW ? ("顯示全部 (" + num + ")") : ("显示全部 (" + num + ")");
                     });
-                } else if (/^Available AI Credits: (\d+)$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Available AI Credits: (\d+)$/i, (match, num) => {
+                } else if (/^Available AI Credits: (\\d+)$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Available AI Credits: (\\d+)$/i, (match, num) => {
                         return USE_TW ? ("可用 AI 額度: " + num) : ("可用 AI 额度: " + num);
                     });
-                } else if (/^Version\s+([\d\.]+)$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^Version\s+([\d\.]+)$/i, (match, v) => {
+                } else if (/^Version\\s+([\\d\\.]+)$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Version\\s+([\\d\\.]+)$/i, (match, v) => {
                         return "版本 " + v;
                     });
-                } else if (/^(\d+)(s|m|h|d|w|mo|yr)$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^(\d+)(s|m|h|d|w|mo|yr)$/i, (match, num, unit) => {
+                } else if (/^(\\d+)(s|m|h|d|w|mo|yr)$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^(\\d+)(s|m|h|d|w|mo|yr)$/i, (match, num, unit) => {
                         const unitLower = unit.toLowerCase();
                         let unitStr = "";
                         if (unitLower === "s") unitStr = USE_TW ? "秒前" : "秒前";
@@ -481,9 +379,16 @@ function generateJs() {
                     newVal = valNorm.replace(/^The (.+?) remote MCP server lets you access and run (.+?) tools to (.+)$/i, (match, name, tools, action) => {
                         return name + (USE_TW ? " 遠端 MCP 伺服器可讓您存取並執行 " : " 远程 MCP 服务器可让您访问并运行 ") + tools + (USE_TW ? " 工具以進行管理與操作。" : " 工具以进行管理与操作。");
                     });
-                } else if (/^The (.+?) remote MCP server lets you manage (.+) resources\.?$/i.test(valNorm)) {
-                    newVal = valNorm.replace(/^The (.+?) remote MCP server lets you manage (.+) resources\.?$/i, (match, name, res) => {
+                } else if (/^The (.+?) remote MCP server lets you manage (.+) resources\\.?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^The (.+?) remote MCP server lets you manage (.+) resources\\.?$/i, (match, name, res) => {
                         return name + (USE_TW ? " 遠端 MCP 伺服器可讓您管理 " : " 远程 MCP 服务器可让您管理 ") + res + (USE_TW ? " 資源。" : " 资源。");
+                    });
+                } else if (/^Send feedback as(\\s+(.+))?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^Send feedback as(\\s+(.+))?$/i, (match, p1, email) => {
+                        if (email) {
+                            return "以 " + email + (USE_TW ? " 身分傳送意見回饋" : " 身份发送反馈");
+                        }
+                        return USE_TW ? "以此身分傳送意見回饋：" : "以如下身份发送反馈：";
                     });
                 } else {
                     // 2. 长句子串滑动替换与前缀截断智能匹配 (缩短至前 18 字符即可高精度命中)

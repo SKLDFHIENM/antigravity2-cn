@@ -274,5 +274,13 @@
     "Update Available ->": "更新可用 ->",
     "Downloading Update": "正在下载更新",
     "Downloading update": "正在下载更新",
-    "Downloading Update...": "正在下载更新..."
+    "Downloading Update...": "正在下载更新...",
+    "Mark Unread": "标记为未读",
+    "Mark Read": "标记为已读",
+    "Mark as Unread": "标记为未读",
+    "Mark as Read": "标记为已读",
+    "Mark as read": "标记为已读",
+    "Mark as unread": "标记为未读",
+    "Send feedback as": "以该身份发送反馈",
+    "Send feedback": "发送反馈"
 }
