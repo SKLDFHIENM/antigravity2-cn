@@ -61,6 +61,7 @@ if (USE_TW) {
         "[!] 未找到备份文件 app.asar.bak，可能尚未安装过汉化或备份被删除。": "[!] 未找到備份檔案 app.asar.bak，可能尚未安裝過漢化或備份已被刪除。",
         "[还原] 正在用官方备份文件恢复...": "[還原] 正在用官方備份檔案恢復...",
         "[还原] 已重置当前 app.asar 为官方原始备份包，以进行全新注入...": "[還原] 已重置目前 app.asar 為官方原始備份包，以進行全新注入...",
+        "[权限] 检测到当前用户对 macOS 应用目录缺少写入权限，正在尝试请求管理员权限 (sudo) 重新运行...": "[權限] 偵測到目前使用者對 macOS 應用程式目錄缺少寫入權限，正在嘗試請求管理員權限 (sudo) 重新執行...",
         "[提示] 当前 app.asar 被锁定（可能是客户端正在运行），将使用当前包进行增量注入。": "[提示] 目前 app.asar 被鎖定（可能是用戶端正在執行），將使用目前包進行增量注入。",
         "[还原] 已恢复 HTML: ": "[還原] 已恢復 HTML: ",
         "[还原] 已删除汉化脚本": "[還原] 已刪除漢化指令碼",
@@ -643,6 +644,29 @@ function resignAppOnMac(anyPath) {
     }
 }
 
+function ensureWritePermission(targetDir) {
+    if (process.platform !== 'darwin') return true;
+    try {
+        fs.accessSync(targetDir, fs.constants.W_OK);
+        return true;
+    } catch (err) {
+        if (process.getuid && process.getuid() !== 0) {
+            console.log("[权限] 检测到当前用户对 macOS 应用目录缺少写入权限，正在尝试请求管理员权限 (sudo) 重新运行...");
+            const args = process.argv.slice(1);
+            const res = child_process.spawnSync('sudo', [process.execPath, ...args], {
+                stdio: 'inherit'
+            });
+            if (res.status === 0) {
+                process.exit(0);
+            } else {
+                console.error("\n[错误] 管理员提权执行失败或用户取消了密码输入。");
+                process.exit(res.status || 1);
+            }
+        }
+        return false;
+    }
+}
+
 // ==========================================
 // Antigravity 2.0 汉化引擎 (ASAR打包注入模式)
 // ==========================================
@@ -658,8 +682,16 @@ function install20(resourcesDir) {
     // 1. 备份
     if (!fs.existsSync(bakPath)) {
         console.log(`[备份] 正在创建官方原始包备份: app.asar.bak ...`);
-        fs.copyFileSync(asarPath, bakPath);
-        console.log(`[备份] 备份成功！`);
+        try {
+            fs.copyFileSync(asarPath, bakPath);
+            console.log(`[备份] 备份成功！`);
+        } catch (e) {
+            console.error(`[错误] 创建备份失败: ${e.message}`);
+            if (process.platform === 'darwin' && e.code === 'EPERM') {
+                console.error(`[提示] macOS 写入受限，请使用管理员权限运行脚本。`);
+            }
+            return false;
+        }
     } else {
         // 尝试用官方备份覆盖当前 app.asar，以确保每次汉化都基于最干净的官方英文包
         try {
@@ -916,8 +948,16 @@ function restore20(resourcesDir) {
     }
 
     console.log("[还原] 正在用官方备份文件恢复...");
-    fs.copyFileSync(bakPath, asarPath);
-    fs.unlinkSync(bakPath);
+    try {
+        fs.copyFileSync(bakPath, asarPath);
+        fs.unlinkSync(bakPath);
+    } catch (e) {
+        console.error(`[错误] 恢复备份失败: ${e.message}`);
+        if (process.platform === 'darwin' && e.code === 'EPERM') {
+            console.error(`[提示] macOS 写入受限，请使用管理员权限运行脚本。`);
+        }
+        return false;
+    }
     resignAppOnMac(resourcesDir);
     console.log("[√] 官方 app.asar 已成功恢复！");
     return true;
@@ -1088,6 +1128,8 @@ function main() {
         console.error(`[错误] 无法定位有效的资源(resources)目录: ${resourcesDir}`);
         process.exit(1);
     }
+
+    ensureWritePermission(resourcesDir);
 
     // 4. 根据架构执行
     const asarPath = path.join(resourcesDir, "app.asar");
