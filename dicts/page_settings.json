@@ -458,6 +458,8 @@
     "Next Pane Tab": "下一个面板标签页",
     "← Previous Pane Tab": "← 上一个面板标签页",
     "→ Next Pane Tab": "→ 下一个面板标签页",
+    "Inherit General": "继承通用设置",
+    "Inherits your General settings when working in this project.": "在此项目中工作时继承您的通用设置。",
     "Add to Chat/Quote": "添加到会话/引用",
     "Toggle Terminal": "切换终端"
 }

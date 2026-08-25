@@ -459,6 +459,8 @@
     "Next Pane Tab": "下一個面板分頁",
     "← Previous Pane Tab": "← 上一個面板分頁",
     "→ Next Pane Tab": "→ 下一個面板分頁",
+    "Inherit General": "繼承一般設定",
+    "Inherits your General settings when working in this project.": "在此專案中工作時繼承您的一般設定。",
     "Add to Chat/Quote": "新增至對話/引用",
     "Toggle Terminal": "切換終端機"
 }
