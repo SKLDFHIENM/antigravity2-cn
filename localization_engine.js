@@ -175,8 +175,19 @@ function generateJs() {
     const longEntries = REPLACEMENT_ENTRIES_PLACEHOLDER;
     const translatedValues = new WeakMap();
 
-    // 全局畅通版：移除所有禁区规则，允许全局全量无差别汉化
-    const SKIP_TAGS = ['SCRIPT', 'STYLE'];
+    // 轻量级安全隔离：跳过脚本、样式、代码块(pre/code)以及编辑器区域
+    const SKIP_TAGS = ['SCRIPT', 'STYLE', 'PRE', 'CODE'];
+
+    function isCodeOrEditor(node) {
+        try {
+            if (!node) return false;
+            const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+            if (!el || typeof el.closest !== 'function') return false;
+            return !!el.closest('pre, code, .monaco-editor, [contenteditable="true"]');
+        } catch (e) {
+            return false;
+        }
+    }
 
     function norm(s) {
         if (!s) return '';
@@ -210,6 +221,8 @@ function generateJs() {
             if (node.nodeType === Node.ELEMENT_NODE) {
                 const tag = node.tagName.toUpperCase();
                 if (SKIP_TAGS.includes(tag)) return;
+                if (node.isContentEditable) return;
+                if (node.classList && node.classList.contains('monaco-editor')) return;
 
                 // 翻译属性：placeholder, title, aria-label
                 for (const attr of ['placeholder', 'title', 'aria-label']) {
@@ -239,6 +252,8 @@ function generateJs() {
                 for (const child of node.childNodes) translateNode(child);
 
             } else if (node.nodeType === Node.TEXT_NODE) {
+                if (isCodeOrEditor(node)) return;
+
                 let originalVal = node.nodeValue;
                 if (!originalVal || originalVal.trim().length < 1) return;
 
