@@ -462,5 +462,16 @@
     "Inherit General": "繼承一般設定",
     "Inherits your General settings when working in this project.": "在此專案中工作時繼承您的一般設定。",
     "Add to Chat/Quote": "新增至對話/引用",
-    "Toggle Terminal": "切換終端機"
+    "Toggle Terminal": "切換終端機",
+    "Queue until after the current turn.": "在目前回合結束後排隊。",
+    "Queue until after the current turn": "在目前回合結束後排隊",
+    "Interrupt the agent and send immediately.": "打斷代理並立即傳送。",
+    "Interrupt the agent and send immediately": "打斷代理並立即傳送",
+    "Enter Queues after the turn": "Enter 回合結束後排隊",
+    "Queues after the turn": "回合結束後排隊",
+    "Alt+Enter Sends immediately": "Alt+Enter 立即傳送",
+    "Sends immediately": "立即傳送",
+    "Alt+Enter On empty prompt, sends next in queue": "Alt+Enter 提示詞為空時，傳送佇列中的下一條",
+    "On empty prompt, sends next in queue": "提示詞為空時，傳送佇列中的下一條",
+    "On empty prompt, sends next in queue.": "提示詞為空時，傳送佇列中的下一條。"
 }

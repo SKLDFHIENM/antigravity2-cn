@@ -513,7 +513,14 @@ function cleanTrayJsContent(content) {
     const startIdx = content.indexOf(startMark);
     const endIdx = content.indexOf(endMark);
     if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
-        return content.substring(0, startIdx) + content.substring(endIdx + endMark.length);
+        content = content.substring(0, startIdx) + content.substring(endIdx + endMark.length);
+    }
+    const dblStartMark = "/* --- TRAY DOUBLE CLICK START --- */";
+    const dblEndMark = "/* --- TRAY DOUBLE CLICK END --- */";
+    const dblStartIdx = content.indexOf(dblStartMark);
+    const dblEndIdx = content.indexOf(dblEndMark);
+    if (dblStartIdx !== -1 && dblEndIdx !== -1 && dblStartIdx < dblEndIdx) {
+        content = content.substring(0, dblStartIdx) + content.substring(dblEndIdx + dblEndMark.length);
     }
     return content;
 }
@@ -901,7 +908,24 @@ function install20(resourcesDir) {
         
         let trayPatched = trayCleaned.replace(targetCreate, replacementCreate);
         
-        // 2. 使用正则替换 updateTrayAgentCount 里的动态显示文本
+        // 2. 注入托盘图标双击弹出/聚焦 Antigravity 界面事件
+        const dblClickTarget = /tray\.setContextMenu\(contextMenu\);/;
+        const dblClickReplacement = `tray.setContextMenu(contextMenu);
+    /* --- TRAY DOUBLE CLICK START --- */
+    const openAction = actions.find(item => item && typeof item.click === 'function' && !['Quit', '退出', '結束'].includes(item.label));
+    if (openAction) {
+        tray.on('double-click', () => {
+            const wins = electron_1.BrowserWindow.getAllWindows();
+            if (wins.length > 0 && wins[0].isMinimized()) {
+                wins[0].restore();
+            }
+            openAction.click();
+        });
+    }
+    /* --- TRAY DOUBLE CLICK END --- */`;
+        trayPatched = trayPatched.replace(dblClickTarget, dblClickReplacement);
+
+        // 3. 使用正则替换 updateTrayAgentCount 里的动态显示文本
         const countRegex = /countItem\.label\s*=\s*\([\s\S]*?' running';/g;
         const replacementCount = USE_TW 
             ? "countItem.label = count > 0 ? `${count} 個智能體執行中` : '無執行中的智能體';"

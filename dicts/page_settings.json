@@ -461,5 +461,16 @@
     "Inherit General": "继承通用设置",
     "Inherits your General settings when working in this project.": "在此项目中工作时继承您的通用设置。",
     "Add to Chat/Quote": "添加到会话/引用",
-    "Toggle Terminal": "切换终端"
+    "Toggle Terminal": "切换终端",
+    "Queue until after the current turn.": "在当前回合结束后排队。",
+    "Queue until after the current turn": "在当前回合结束后排队",
+    "Interrupt the agent and send immediately.": "打断智能体并立即发送。",
+    "Interrupt the agent and send immediately": "打断智能体并立即发送",
+    "Enter Queues after the turn": "Enter 回合结束后排队",
+    "Queues after the turn": "回合结束后排队",
+    "Alt+Enter Sends immediately": "Alt+Enter 立即发送",
+    "Sends immediately": "立即发送",
+    "Alt+Enter On empty prompt, sends next in queue": "Alt+Enter 提示词为空时，发送队列中的下一条",
+    "On empty prompt, sends next in queue": "提示词为空时，发送队列中的下一条",
+    "On empty prompt, sends next in queue.": "提示词为空时，发送队列中的下一条。"
 }
