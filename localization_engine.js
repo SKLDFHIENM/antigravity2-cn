@@ -307,6 +307,8 @@ function generateJs() {
                     newVal = USE_TW ? "Cloud Quotas MCP 伺服器支援檢視配額分配、申請提升配額以及管理 Quota Adjuster 自動調整設定。" : "Cloud Quotas MCP 服务器支持查看配额分配、申请提升配额以及管理 Quota Adjuster 自动调整配置。";
                 } else if (/^Build, edit, deploy, and manage full-stack web apps with Lovable/i.test(valNorm)) {
                     newVal = USE_TW ? "使用自然語言，藉助 AI 應用程式建構工具 Lovable 建構、編輯、部署和管理全端 Web 應用程式。該 MCP 伺服器將您的 AI 用戶端連接至 Lovable，允許您的 AI 代理直接在偏好的編輯器或助手內互動、建立和管理 Lovable 專案。" : "使用自然语言，借助 AI 应用构建工具 Lovable 构建、编辑、部署和管理全栈 Web 应用。该 MCP 服务器将您的 AI 客户端连接至 Lovable，允许您的 AI 智能体直接在偏好的编辑器或助手中交互、创建和管理 Lovable 项目。";
+                } else if (/^Build applications with the Gemini Interactions API and Live API/i.test(valNorm)) {
+                    newVal = USE_TW ? "使用 Gemini Interactions API 與 Live API 建構應用程式，涵蓋文字生成、多輪對話、串流、函式呼叫、託管代理及即時音訊與視訊互動。" : "使用 Gemini Interactions API 和 Live API 构建应用，涵盖文本生成、多轮对话、流式传输、函数调用、托管智能体以及实时音视频交互。";
                 } else if (/^(?:Refreshes|You have (?:used (?:some|all) of|reached) your (?:weekly|5-hour) limit, it will fully refresh) in (\\d+) days?, (\\d+) hours?\\.?$/i.test(valNorm)) {
                     newVal = valNorm.replace(/^(?:Refreshes|You have (?:used (?:some|all) of|reached) your (?:weekly|5-hour) limit, it will fully refresh) in (\\d+) days?, (\\d+) hours?\\.?$/i, (match, d, h) => {
                         return USE_TW ? (d + " 天 " + h + " 小時後更新") : (d + " 天 " + h + " 小时后刷新");
@@ -327,13 +329,20 @@ function generateJs() {
                     newVal = valNorm.replace(/^(?:Refreshes|You have (?:used (?:some|all) of|reached) your (?:weekly|5-hour) limit, it will fully refresh) in (\\d+) minutes?\\.?$/i, (match, m) => {
                         return USE_TW ? (m + " 分鐘後更新") : (m + " 分钟后刷新");
                     });
+                } else if (/^(?:Refreshes|You have (?:used (?:some|all) of|reached) your (?:weekly|5-hour) limit, it will fully refresh) in less than a minute\\.?$/i.test(valNorm)) {
+                    newVal = USE_TW ? "不到 1 分鐘後更新" : "不到 1 分钟后刷新";
+                } else if (/^(?:Refreshes|You have (?:used (?:some|all) of|reached) your (?:weekly|5-hour) limit, it will fully refresh) in a few seconds\\.?$/i.test(valNorm)) {
+                    newVal = USE_TW ? "幾秒後更新" : "几秒后刷新";
+                } else if (/^Learn more about$/i.test(valNorm)) {
+                    newVal = USE_TW ? "瞭解更多關於" : "了解更多关于";
                 } else if (/^Learn more about (.+)$/i.test(valNorm)) {
                     newVal = valNorm.replace(/^Learn more about (.+)$/i, (match, p) => {
                         let translatedPreset = p;
-                        if (p.toLowerCase() === 'default') translatedPreset = USE_TW ? "預設 (Default)" : "默认 (Default)";
-                        else if (p.toLowerCase() === 'full machine') translatedPreset = USE_TW ? "全機存取 (Full Machine)" : "全机访问 (Full Machine)";
-                        else if (p.toLowerCase() === 'turbo mode') translatedPreset = USE_TW ? "極速模式 (Turbo Mode)" : "极速模式 (Turbo Mode)";
-                        else if (p.toLowerCase() === 'custom') translatedPreset = USE_TW ? "自訂 (Custom)" : "自定义 (Custom)";
+                        const pLow = p.toLowerCase();
+                        if (pLow === 'default' || pLow.includes('默认') || pLow.includes('預設')) translatedPreset = USE_TW ? "預設 (Default)" : "默认 (Default)";
+                        else if (pLow === 'full machine' || pLow.includes('全机') || pLow.includes('全機')) translatedPreset = USE_TW ? "全機存取 (Full Machine)" : "全机访问 (Full Machine)";
+                        else if (pLow === 'turbo mode' || pLow.includes('极速') || pLow.includes('極速')) translatedPreset = USE_TW ? "極速模式 (Turbo Mode)" : "极速模式 (Turbo Mode)";
+                        else if (pLow === 'custom' || pLow.includes('自定义') || pLow.includes('自訂')) translatedPreset = USE_TW ? "自訂 (Custom)" : "自定义 (Custom)";
                         return USE_TW ? ("瞭解更多關於 " + translatedPreset + " 的詳細資訊") : ("了解更多关于 " + translatedPreset + " 的信息");
                     });
                 } else if (/^Yes, and always allow '(.+)' in this project$/i.test(valNorm)) {
@@ -799,6 +808,10 @@ function install20(resourcesDir) {
         'Zoom In': '放大',
         'Zoom Out': '縮小',
         'Toggle Full Screen': '切換全螢幕',
+        'Split Terminal': '分割終端機',
+        'Split Conversation Horizontally': '水平分割對話',
+        'Split Conversation Vertically': '垂直分割對話',
+        'Find in conversation': '在對話中尋找',
         'Version': '版本'
     }` : `{
         'File': '文件',
@@ -826,6 +839,10 @@ function install20(resourcesDir) {
         'Zoom In': '放大',
         'Zoom Out': '缩小',
         'Toggle Full Screen': '切换全屏',
+        'Split Terminal': '拆分终端',
+        'Split Conversation Horizontally': '水平拆分会话',
+        'Split Conversation Vertically': '垂直拆分会话',
+        'Find in conversation': '在会话中查找',
         'Version': '版本'
     }`};
     function translateMenu(items) {
