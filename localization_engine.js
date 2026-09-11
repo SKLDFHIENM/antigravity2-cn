@@ -89,7 +89,12 @@ if (USE_TW) {
         "[启动] 检测到安装前反重力客户端处于开启状态，正在重新启动客户端...": "[啟動] 偵測到安裝前反重力用戶端處於開啟狀態，正在重新啟動用戶端...",
         "[启动] 客户端启动成功！": "[啟動] 用戶端啟動成功！",
         "[警告] 未找到客户端主程序: ": "[警告] 未找到用戶端主程式: ",
-        "[警告] 客户端启动失败: ": "[警告] 用戶端啟動失敗: "
+        "[警告] 客户端启动失败: ": "[警告] 用戶端啟動失敗: ",
+        "[代理] 检测到 proxy_config 配置目录，正在注入代理模块...": "[代理] 偵測到 proxy_config 設定目錄，正在注入代理模組...",
+        "[代理] 代理模块注入成功: ": "[代理] 代理模組注入成功: ",
+        "[代理] 已清理代理注入文件: ": "[代理] 已清理代理注入檔案: ",
+        "[代理警告] 注入文件 ": "[代理警告] 注入檔案 ",
+        "[代理警告] 移除代理文件 ": "[代理警告] 移除代理檔案 "
     };
     const translateMsg = (args) => {
         return args.map(arg => {
@@ -1136,6 +1141,77 @@ function restore10(installDir) {
 }
 
 // ==========================================
+// 代理模块管理 (Windows 平台可选注入)
+// ==========================================
+function injectProxyIfNeeded(installDir) {
+    if (process.platform !== 'win32') return;
+    const proxyConfigDir = path.join(__dirname, 'proxy_config');
+    if (!fs.existsSync(proxyConfigDir)) return;
+
+    let files = [];
+    try {
+        files = fs.readdirSync(proxyConfigDir).filter(f => {
+            const fullPath = path.join(proxyConfigDir, f);
+            return fs.statSync(fullPath).isFile();
+        });
+    } catch (e) {
+        return;
+    }
+
+    if (files.length === 0) return;
+
+    console.log(`\n[代理] 检测到 proxy_config 配置目录，正在注入代理模块...`);
+    const injectedFiles = [];
+    for (const file of files) {
+        const src = path.join(proxyConfigDir, file);
+        const dest = path.join(installDir, file);
+        try {
+            fs.copyFileSync(src, dest);
+            injectedFiles.push(file);
+        } catch (e) {
+            console.warn(`[代理警告] 注入文件 ${file} 失败: ${e.message}`);
+        }
+    }
+
+    if (injectedFiles.length > 0) {
+        console.log(`[代理] 代理模块注入成功: ${injectedFiles.join(', ')}`);
+    }
+}
+
+function restoreProxyIfNeeded(installDir) {
+    if (process.platform !== 'win32') return;
+    const proxyFiles = ['version.dll', 'dbghelp.dll', 'config.json'];
+    const proxyConfigDir = path.join(__dirname, 'proxy_config');
+    if (fs.existsSync(proxyConfigDir)) {
+        try {
+            const files = fs.readdirSync(proxyConfigDir);
+            for (const f of files) {
+                if (!proxyFiles.includes(f)) proxyFiles.push(f);
+            }
+        } catch (e) {
+            // ignore
+        }
+    }
+
+    const removedFiles = [];
+    for (const file of proxyFiles) {
+        const dest = path.join(installDir, file);
+        if (fs.existsSync(dest)) {
+            try {
+                fs.unlinkSync(dest);
+                removedFiles.push(file);
+            } catch (e) {
+                console.warn(`[代理警告] 移除代理文件 ${file} 失败: ${e.message}`);
+            }
+        }
+    }
+
+    if (removedFiles.length > 0) {
+        console.log(`[代理] 已清理代理注入文件: ${removedFiles.join(', ')}`);
+    }
+}
+
+// ==========================================
 // 入口
 // ==========================================
 function main() {
@@ -1203,12 +1279,18 @@ function main() {
         } else {
             success = restore10(installDir);
         }
+        if (success) {
+            restoreProxyIfNeeded(installDir);
+        }
     } else {
         console.log("====== 正在安装 Antigravity 中文汉化 ======");
         if (isV2) {
             success = install20(resourcesDir);
         } else {
             success = install10(installDir);
+        }
+        if (success) {
+            injectProxyIfNeeded(installDir);
         }
     }
 
