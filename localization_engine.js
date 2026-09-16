@@ -180,7 +180,7 @@ function generateJs() {
     const longEntries = REPLACEMENT_ENTRIES_PLACEHOLDER;
     const translatedValues = new WeakMap();
 
-    // 轻量级安全隔离：跳过脚本、样式、代码块(pre/code)以及编辑器区域
+    // 轻量级安全隔离：跳过脚本、样式、代码块(pre/code)、编辑器区域以及终端容器
     const SKIP_TAGS = ['SCRIPT', 'STYLE', 'PRE', 'CODE'];
 
     function isCodeOrEditor(node) {
@@ -188,7 +188,7 @@ function generateJs() {
             if (!node) return false;
             const el = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
             if (!el || typeof el.closest !== 'function') return false;
-            return !!el.closest('pre, code, .monaco-editor, [contenteditable="true"]');
+            return !!el.closest('pre, code, .monaco-editor, [contenteditable="true"], .terminal, .xterm');
         } catch (e) {
             return false;
         }
@@ -222,12 +222,13 @@ function generateJs() {
     function translateNode(node) {
         try {
             if (!node) return;
+            if (isCodeOrEditor(node)) return;
             
             if (node.nodeType === Node.ELEMENT_NODE) {
                 const tag = node.tagName.toUpperCase();
                 if (SKIP_TAGS.includes(tag)) return;
                 if (node.isContentEditable) return;
-                if (node.classList && node.classList.contains('monaco-editor')) return;
+                if (node.classList && (node.classList.contains('monaco-editor') || node.classList.contains('terminal') || node.classList.contains('xterm'))) return;
 
                 // 翻译属性：placeholder, title, aria-label
                 for (const attr of ['placeholder', 'title', 'aria-label']) {
