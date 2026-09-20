@@ -250,6 +250,13 @@ function generateJs() {
                                 return USE_TW ? ("顯示另外 " + num + " 個...") : ("显示另外 " + num + " 个...");
                             });
                             node.setAttribute(attr, trans);
+                        } else if (/^(?:(Permanently delete)\\s+)?(.+?)\\s+including\\s+(\\d+)\\s+active conversations?([.。])?$/i.test(t)) {
+                            const trans = t.replace(/^(?:(Permanently delete)\\s+)?(.+?)\\s+including\\s+(\\d+)\\s+active conversations?([.。])?$/i, (match, del, name, count, dot) => {
+                                const delPrefix = del ? (USE_TW ? "永久刪除 " : "永久删除 ") : "";
+                                const suffix = dot ? "。" : "";
+                                return delPrefix + name + (USE_TW ? ("（包含 " + count + " 個活躍對話）") : ("（包含 " + count + " 个活跃会话）")) + suffix;
+                            });
+                            node.setAttribute(attr, trans);
                         }
                     }
                 }
@@ -409,6 +416,22 @@ function generateJs() {
                 } else if (/^Are you sure you want to delete (the |this )?project (.+?)\\??$/i.test(valNorm)) {
                     newVal = valNorm.replace(/^Are you sure you want to delete (the |this )?project (.+?)\\??$/i, (match, article, name) => {
                         return USE_TW ? ("您確定要刪除專案 " + name + " 嗎？") : ("您确定要删除项目 " + name + " 吗？");
+                    });
+                } else if (/^(?:(Permanently delete)\\s+)?(.+?)\\s+including\\s+(\\d+)\\s+active conversations?([.。])?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^(?:(Permanently delete)\\s+)?(.+?)\\s+including\\s+(\\d+)\\s+active conversations?([.。])?$/i, (match, del, name, count, dot) => {
+                        const delPrefix = del ? (USE_TW ? "永久刪除 " : "永久删除 ") : "";
+                        const suffix = dot ? "。" : "";
+                        return delPrefix + name + (USE_TW ? ("（包含 " + count + " 個活躍對話）") : ("（包含 " + count + " 个活跃会话）")) + suffix;
+                    });
+                } else if (/^including\\s+(\\d+)\\s+active conversations?([.。])?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^including\\s+(\\d+)\\s+active conversations?([.。])?$/i, (match, count, dot) => {
+                        const suffix = dot ? "。" : "";
+                        return (USE_TW ? ("包含 " + count + " 個活躍對話") : ("包含 " + count + " 个活跃会话")) + suffix;
+                    });
+                } else if (/^(\\d+)\\s+active conversations?([.。])?$/i.test(valNorm)) {
+                    newVal = valNorm.replace(/^(\\d+)\\s+active conversations?([.。])?$/i, (match, count, dot) => {
+                        const suffix = dot ? "。" : "";
+                        return (USE_TW ? (count + " 個活躍對話") : (count + " 个活跃会话")) + suffix;
                     });
                 } else if (/^The (.+?) remote MCP server lets you access and run (.+?) tools to (.+)$/i.test(valNorm)) {
                     newVal = valNorm.replace(/^The (.+?) remote MCP server lets you access and run (.+?) tools to (.+)$/i, (match, name, tools, action) => {
